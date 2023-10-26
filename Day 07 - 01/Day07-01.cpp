@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <sstream>
 
 using namespace std;
 
@@ -8,14 +9,49 @@ struct Node{
     Node * prev;
     string nome;
     string tipo;
+    int size;
     vector <Node *> childs;
 
     Node(string n = "/", string t = "(dir)"){
         this->nome = n;
         prev = nullptr;
         this->tipo = t;
+
+        if(t != "(dir)" && t != "dir"){
+            size = stoi(t);
+        }else{
+            size = 0;
+        }
     }
 };
+
+string imprimeTudo(Node * nodo){
+    if(nodo == nullptr) return "";
+    stringstream ss;
+    for(int i = 0; i < nodo->childs.size(); i++){
+       ss << " -" << nodo->childs[i]->nome << " " << nodo->childs[i]->tipo << " " << endl;
+    }
+
+    for(int i = 0; i < nodo->childs.size(); i++){
+       ss << imprimeTudo(nodo->childs[i]);
+    }
+
+    return ss.str();
+}
+
+int obtemSizeDir(Node * dir){
+    if(dir->tipo != "(dir)" && dir->tipo != "dir") return dir->size;
+
+    long long int sizeAtual = dir->size;
+    long long int sizeD = 0;
+    cout << dir->nome << endl << " -" << endl;
+    for(int i = 0; i < dir->childs.size(); i++){
+        sizeD += obtemSizeDir(dir->childs[i]);
+    }
+
+    return sizeAtual + sizeD;
+}
+
 
 int main(){
     string estiloComando;
@@ -98,10 +134,14 @@ int main(){
                                 }
                             }
                         }else{
-                            //Nesse caso, oque recebeu em string vai ser o peso do arquivo (quickStr2)
+                            //Nesse caso, oque recebeu em string vai ser o peso do arquivo (quickStr1)
                             //E o tipe vira o nome dele (quickStr2)
                             cin >> quickStr2;
+                            quickStr3 = quickStr1;
+                            quickStr1 = quickStr2;
+                            quickStr2 = quickStr3;
                             create = new Node(quickStr1, quickStr2);
+                            create->size = stoi(quickStr2);
                             create->prev = atual;
                             atual->childs.push_back(create);
                             continue;
@@ -112,10 +152,13 @@ int main(){
         }
     }
 
-    Node * imprime = atual;
-    for(int i = 0; i < atual->childs.size(); i++){
-        cout << atual->childs[i]->nome << " " << atual->childs[i]->tipo << endl;
-    }
+    //Gera Peso para arquivos
+
+    Node * imprime = head;
+
+    vector <int> v;
+    long long int n = obtemSizeDir(head);
+    cout << n << endl;
 
     return 0;
 }

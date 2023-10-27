@@ -1,164 +1,192 @@
 #include <iostream>
 #include <string>
-#include <vector>
 #include <sstream>
+#include <vector>
 
 using namespace std;
 
 struct Node{
-    Node * prev;
-    string nome;
-    string tipo;
-    int size;
-    vector <Node *> childs;
+	int size = 0;		//Store the file size
+	string name;			//Store the file name
+	string type;			//Store if it is a file or a dir
+	Node * parent;			//Store it current Dir
+	vector <Node *> childs;		//Store this Node childs
 
-    Node(string n = "/", string t = "(dir)"){
-        this->nome = n;
-        prev = nullptr;
-        this->tipo = t;
+	Node(string t, string n){
+		this->name = n;	
+		this->type = t;
+		parent = nullptr;
+		//cout << "> Criando Nodo(" << this->name << ")..." << endl;
 
-        if(t != "(dir)" && t != "dir"){
-            size = stoi(t);
-        }else{
-            size = 0;
-        }
-    }
+		if(t != "dir"){
+			this->size = stoi(t);
+			this->type = "file";
+		}else{
+			this->size = 0;
+		}
+	}
+
+	~Node(){
+		for(int i = 0; i < childs.size(); i++){
+			if(childs[i] != nullptr) delete childs[i];
+		}
+
+		//cout << "> Deletando Nodo(" << this->name << ")..." << endl;
+	}
 };
 
-string imprimeTudo(Node * nodo){
-    if(nodo == nullptr) return "";
-    stringstream ss;
-    for(int i = 0; i < nodo->childs.size(); i++){
-       ss << " -" << nodo->childs[i]->nome << " " << nodo->childs[i]->tipo << " " << endl;
-    }
+//There are 2 categories: file and dir
 
-    for(int i = 0; i < nodo->childs.size(); i++){
-       ss << imprimeTudo(nodo->childs[i]);
-    }
+class DirLinkedTree{
+	private:
+		Node * head;
+		Node * atual;
+	public:
+		DirLinkedTree(){ head = nullptr; atual = nullptr; }
+		~DirLinkedTree(){ if(head != nullptr) delete head; }
+		bool isEmpty()const{ return head == nullptr; }
+		Node * returnHead(){ return head;   }
+		Node * returnAtual(){ return atual; }
+		
+		bool setExterior(){ if(head == nullptr){ return false; } atual = head; return true;}
+		bool goBack(){ if(head == nullptr){ return false; } atual = atual->parent; return true;}
 
-    return ss.str();
-}
+		void goFoward(string n = " "){
+			for(int i = 0; i < atual->childs.size(); i++){
+				if(atual->childs[i]->name == n && atual->childs[i]->type == "dir"){
+					atual = atual->childs[i];
+					return;
+				}
+			}
+		}
 
-int obtemSizeDir(Node * dir){
-    if(dir->tipo != "(dir)" && dir->tipo != "dir") return dir->size;
+		void addNode(Node * newNode){
+			//cout << "> Adicionando Nodo..." << endl;
 
-    long long int sizeAtual = dir->size;
-    long long int sizeD = 0;
-    cout << dir->nome << endl << " -" << endl;
-    for(int i = 0; i < dir->childs.size(); i++){
-        sizeD += obtemSizeDir(dir->childs[i]);
-    }
+			if(head == nullptr){
+				atual = head = newNode;
+				return;
+			}
 
-    return sizeAtual + sizeD;
-}
+			if(atual != nullptr) atual->childs.push_back(newNode);
+			newNode->parent = atual;
+			Node * aux = atual;
 
+			while(aux != nullptr){
+				aux->size += newNode->size;
+				//cout << aux->name << " - " << aux->type << " - " << aux->size << endl;
+				aux = aux->parent;
+			}	
+		}
 
-int main(){
-    string estiloComando;
-    string comando;
-    string nomeAuxiliar;
-    string tipoAuxiliar;
+		string imprime(Node * aux){
+			if(aux == nullptr) return " ";
+			stringstream ss;
+			ss << "- " << aux->name << " (dir) [size = " << aux->size << "] { ";
+			for(int i = 0; i < aux->childs.size(); i++){
+				if(i != 0) ss << " - ";
+				ss << aux->childs[i]->name;
+				if(aux->childs[i]->type == "dir") ss << " (dir)";
+			}
+			ss << " }" << endl;
 
-    Node * atual;
-    Node * head = nullptr;
-    Node * create;
-    while(true){
-        cin >> comando;
-        if(comando == ".") break;
+			for(int i = 0; i < aux->childs.size(); i++){
+				if(aux->childs[i]->type == "dir") ss << imprime(aux->childs[i]);
+			}
 
-        if(comando == "$"){
-            //Vamos entrar num comando
-            cin >> estiloComando;
+			return ss.str();
+		}
 
-            if(estiloComando == "cd"){
-                cin >> nomeAuxiliar;
+		string imprimeTudo(){
+			stringstream ss;	
+			ss << endl;
+			ss << imprime(head);
+			return ss.str();
+		}
 
-                if(nomeAuxiliar == "/"){
-                    if(head == nullptr){
-                        head = new Node("/", "(dir)");
-                        atual = head;
-                    }else{
-                        atual = head;
-                    }
-                }else{
-                    if(nomeAuxiliar == ".."){
-                        if(atual->prev != nullptr) atual = atual->prev;
-                    }else{
-                        //Método de Busca
-                        for(int i = 0; i < atual->childs.size(); i++){
-                            if(atual->childs[i]->nome == nomeAuxiliar){
-                                atual = atual->childs[i];
-                                break;
-                            }   
-                        }
-                    }
-                }
-            }
-        
-            if(estiloComando == "ls"){
-                string quickStr1;   //Nome do novo comando
-                string quickStr2;   //Nome para o coisa
-                string quickStr3;
+		int retornaSizeEspecificado(Node * aux, int maxSize){
+			if(aux == nullptr) return 0;
+			long long int v = 0;
+			
+			if(aux->size <= maxSize) v += aux->size;
+			
+			for(int i = 0; i < aux->childs.size(); i++){
+				if(aux->childs[i]->type == "dir"){
+					v += retornaSizeEspecificado(aux->childs[i], maxSize);
+				}
+			}
+			
+			return v;
+		}
+};
 
-                while(true){
-                    cin >> quickStr1;
-                    if(quickStr1 == "dir"){
-                        cin >> quickStr2;
-                        create = new Node(quickStr2, "(dir)");
-                        create->prev = atual;
-                        atual->childs.push_back(create);
-                        continue;
-                    }else{
-                        if(quickStr1 == "$"){
-                            cin >> quickStr2;
+int main(){		
+	string estiloComando;
+    	string comando;
 
-                            if(quickStr2 == "cd"){
-                                cin >> quickStr3;
+    	string nomeAuxiliar;
+    	string tipoAuxiliar;
+	
+	
+	DirLinkedTree * tree = new DirLinkedTree();
+	Node * atual;
+	Node * create;
 
-                                if(quickStr3 == ".."){
-                                    if(atual->prev != nullptr) atual = atual->prev;
-                                    break;
-                                }else{
-                                    if(quickStr3 == "/"){
-                                        atual = head;
-                                        break;
-                                    }else{
-                                        for(int i = 0; i < atual->childs.size(); i++){
-                                            if(atual->childs[i]->nome == quickStr3){
-                                                atual = atual->childs[i];
-                                                break;
-                                            }
-                                        }
-                                        break;
-                                    }
-                                }
-                            }
-                        }else{
-                            //Nesse caso, oque recebeu em string vai ser o peso do arquivo (quickStr1)
-                            //E o tipe vira o nome dele (quickStr2)
-                            cin >> quickStr2;
-                            quickStr3 = quickStr1;
-                            quickStr1 = quickStr2;
-                            quickStr2 = quickStr3;
-                            create = new Node(quickStr1, quickStr2);
-                            create->size = stoi(quickStr2);
-                            create->prev = atual;
-                            atual->childs.push_back(create);
-                            continue;
-                        }
-                    }
-                }
-            }
+	bool addingMode = false;
+
+	while(true){
+        	cin >> comando;
+
+		if(comando == "$"){
+			addingMode = false;
+			cin >> estiloComando;
+			
+			//ir para diretório ou sair
+			if(estiloComando == "cd"){
+				cin >> nomeAuxiliar;
+				
+				if(nomeAuxiliar == "/"){
+					if(tree->isEmpty() == true){
+						create = new Node("dir", "/");
+						tree->addNode(create);
+					}else{
+						tree->setExterior();
+					}
+				}else{
+					if(nomeAuxiliar == ".."){
+						tree->goBack();
+					}else{
+						tree->goFoward(nomeAuxiliar);
+					
+					}
+				}
+			}
+
+	
+			//Adicionando arquivos novos
+			if(estiloComando == "ls"){
+				addingMode = true;
+			}
+		}else{
+			if(comando == "."){
+				break;
+			}else{
+				if(addingMode == true){
+					//cout << "---Estou adicionando---" << endl;
+					cin >> nomeAuxiliar;
+					create = new Node(comando, nomeAuxiliar);
+					tree->addNode(create);
+				}
+			}
+			
+		}
         }
-    }
+	cout << tree->imprimeTudo() << endl;
 
-    //Gera Peso para arquivos
-
-    Node * imprime = head;
-
-    vector <int> v;
-    long long int n = obtemSizeDir(head);
-    cout << n << endl;
-
-    return 0;
+	long long int n;
+	n = tree->retornaSizeEspecificado(tree->returnHead(), 100000);
+	cout << n << endl;
+	
+		
+	return 0;
 }
